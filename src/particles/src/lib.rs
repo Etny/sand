@@ -21,34 +21,43 @@ pub struct World {
     width: usize,
     height: usize,
     cells: Vec<Vec<Cell>>,
-    draw_buffer: Vec<[f32; 4]>,
+    draw_buffer: Vec<[u8; 4]>,
 }
 
 impl Cell {
-    fn new() -> Cell {
-        Cell { material: Material::Sand, lifetime: 0f32, seed: 0 }
+    fn new(mat: Material) -> Cell {
+        Cell { material: mat, lifetime: 0f32, seed: 0 }
     }
 
-    fn draw(&self) -> [f32; 4] {
+    fn draw(&self) -> [u8; 4] {
         match self.material {
-            Material::Air => [1.0, 0.5, 0.5, 1.0],
-            Material::Sand => [1.0, 0.4, 1.0, 1.0]
+            Material::Air => [255, 125, 0, 255],
+            Material::Sand => [120, 0, 255, 255]
         }
     }
 }
 
 impl World {
     pub fn new(width: usize, height: usize) -> World{
-        let cells = vec![vec![Cell::new(); height]; width];
-        let draw_buffer = vec![[0f32; 4]; height*width];
+        let mut cells = vec![];
+
+        for i in 0..width {
+            let mat = match i%2 {
+                0 => Material::Air,
+                _ => Material::Sand
+            };
+            cells.push(vec![Cell::new(mat); height]);
+        }
+
+        let draw_buffer = vec![[0u8; 4]; height*width];
         
         World { width, height, cells, draw_buffer }
     }
 
-    pub fn draw(&mut self) -> &Vec<[f32; 4]>{
-        for x in 0..self.width {
-            for y in 0..self.height {
-                self.draw_buffer[(x * self.width) + y] = self.cells[x][y].draw();
+    pub fn draw(&mut self) -> &Vec<[u8; 4]>{
+        for y in 0..self.height {
+            for x in 0..self.width {
+                self.draw_buffer[(y * self.height) + x] = self.cells[x][y].draw();
             }
         }
 

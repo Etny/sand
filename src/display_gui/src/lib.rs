@@ -7,11 +7,11 @@ use particles;
 
 use std::time;
 
-use glium::{Display, Surface, glutin};
+use glium::{Display, Surface, glutin, uniforms::{MagnifySamplerFilter, MinifySamplerFilter}};
 use glutin::dpi::{PhysicalSize, Size};
 
 pub fn open_window(title: &str) {
-    implement_vertex!(Vertex, position, color);
+    implement_vertex!(Vertex, position, tex_coords);
     
     let size = PhysicalSize::new(255, 255);
 
@@ -21,18 +21,17 @@ pub fn open_window(title: &str) {
 
     let display = Display::new(window_builder, context_builder, &event_loop).unwrap();
 
-    let mut world = particles::World::new(5, 5);
-    let draw = world.draw();
-    let mut shape = vec![Vertex{position:[0u32; 2], color:[0f32; 4]}; 25];
+    let shape = vec![
+        Vertex{ position: [-1.0, -1.0 ], tex_coords: [0.0, 0.0]},
+        Vertex{ position: [-1.0, 1.0 ], tex_coords: [0.0, 1.0]},
+        Vertex{ position: [1.0, 1.0 ], tex_coords: [1.0, 1.0]},
+        Vertex{ position: [1.0, -1.0 ], tex_coords: [1.0, 0.0]}
+    ];
 
-    for x in 0..5 {
-        for y in 0..5 {
-            shape[y + (x * 5)] = Vertex { position: [x as u32, y as u32], color: draw[(x * 5) + y] };
-        }
-    }
+    let indices: [u32; 6] = [0, 1, 2, 3, 2, 0];
 
     let vertex_buffer = glium::VertexBuffer::new(&display, &shape).unwrap();
-    let index_buffer = glium::index::NoIndices(glium::index::PrimitiveType::Points);
+    let index_buffer = glium::index::IndexBuffer::new(&display, glium::index::PrimitiveType::TrianglesList, &indices).unwrap();
 
     let vertex_shader_src = include_str!("../vertex.vert");
 
@@ -41,17 +40,28 @@ pub fn open_window(title: &str) {
     let shader = glium::Program::from_source(&display, &vertex_shader_src, &fragment_shader_src, None).unwrap();
 
     let frame_time = 16_666_667;
-    let point_size = (size.width / 5) as f32;
+
+    
+    let mut world = particles::World::new(5, 5);
+    let draw = world.draw().iter().flatten().map(|x|*x).collect();
+    let image = glium::texture::RawImage2d::from_raw_rgba(draw, (5, 5));
+    let texture = glium::texture::SrgbTexture2d::new(&display, image).unwrap();
+    
+    let behavior = glium::uniforms::SamplerBehavior {
+        minify_filter: MinifySamplerFilter::Nearest,
+        magnify_filter: MagnifySamplerFilter::Nearest,
+        ..Default::default()
+    };
 
     event_loop.run(move |event, _, control_flow| {
 
         let mut target = display.draw();
         // target.clear_color(1.0, 0.5, 0.3, 1.0);
 
-        let uniforms = uniform! { dimensions: [5u32, 5u32], point_size: point_size };
+        let uniforms = uniform! { data: glium::uniforms::Sampler(&texture, behavior) };
 
         let params = glium::DrawParameters {
-            point_size: Some(point_size),
+            // point_size: Some(point_size),
             ..Default::default()
         };
 
@@ -77,6 +87,6 @@ pub fn open_window(title: &str) {
 
 #[derive(Clone, Copy, Debug)]
 struct Vertex {
-    position: [u32; 2],
-    color: [f32; 4]
+    position: [f32; 2],
+    tex_coords: [f32; 2]
 }
