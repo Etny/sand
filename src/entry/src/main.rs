@@ -1,7 +1,9 @@
-// use particles;
+use particles;
 use display_gui;
 
 fn main() {
-    display_gui::open_window("Test Window");
-    // println!("{:?}", particles::World::new(5, 5).draw());
+    let world = particles::World::new(64, 32);
+
+    let window = display_gui::Window::new("Sand Test", world.width() * 15, world.height() * 15);
+    window.run(world);
 }
