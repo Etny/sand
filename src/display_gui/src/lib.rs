@@ -19,15 +19,16 @@ pub struct Window {
     quad_vertex_buffer: glium::VertexBuffer<Vertex>,
     quad_index_buffer: glium::IndexBuffer<u32>,
     mouse_pos: Option<(f64, f64)>,
-    size: (u32, u32)
-
+    size: (u32, u32),
+    cell_size: (f32, f32),
+    mouse_down: bool
 }
 
 impl Window {
-    pub fn new(title: &str, width: u32, height: u32) -> Self {
+    pub fn new(title: &str, world: &particles::World, cell_size: (f32, f32)) -> Self {
         implement_vertex!(Vertex, position, tex_coords);
     
-        let size = PhysicalSize::new(width, height);
+        let size = PhysicalSize::new((world.width() as f32 * cell_size.0).floor() as u32, (world.height() as f32 * cell_size.1).floor() as u32);
 
         let event_loop = glutin::event_loop::EventLoop::new();
         let window_builder = glutin::window::WindowBuilder::new().with_title(title).with_inner_size(Size::Physical(size));
@@ -60,7 +61,9 @@ impl Window {
             quad_vertex_buffer, 
             quad_index_buffer, 
             mouse_pos: None, 
-            size:(width, height) 
+            mouse_down: false,
+            size:(size.width, size.height),
+            cell_size
         }
     }
 
@@ -78,58 +81,69 @@ impl Window {
 
         let mut last_time = time::Instant::now();
         let mut count: u32 = 0;
+
+        let tick_time = time::Duration::from_nanos(16_666_667);
+        let mut last_tick = time::Instant::now();
         
         event_loop.run(move |event, _, control_flow| {
+            let now = time::Instant::now();
             
-            if time::Instant::now() - last_time >= time::Duration::from_secs(1) {
-                println!("{} tps", count);
-                count = 0;
-                last_time = time::Instant::now();
-            }
-
-            count += 1;
-
-            if !self.update(event, control_flow, &mut world) { return; }
-
-            let next_frame = time::Instant::now() + time::Duration::from_nanos(16_666_667);
-            *control_flow = glutin::event_loop::ControlFlow::WaitUntil(next_frame);
-        });
-    }
-
-    fn update(&mut self, event: glutin::event::Event<()>, control_flow: &mut glutin::event_loop::ControlFlow, world: &mut particles::World) -> bool {
-        match event {
-            glutin::event::Event::WindowEvent { event, ..} => match event {
-
-                glutin::event::WindowEvent::CloseRequested => {
-                    *control_flow = glutin::event_loop::ControlFlow::Exit;
-                    return false;
-                },
-
-                glutin::event::WindowEvent::CursorMoved {position, ..} => {
-                        self.mouse_pos = Some((position.x, position.y));
-                },
-
-                _ => ()
-            },
-
-            glutin::event::Event::MainEventsCleared => {
-                self.draw(world)
-            },
-
-            _ => ()
-        }
-
-
-        if self.mouse_in_window() {
-            if let Some(pos) = self.mouse_pos {
-                world.set_cell(pos.0 as usize / 15, pos.1 as usize / 15, particles::Cell::new(particles::Material::Air));
-            }
-        }
-
+            match event {
+                glutin::event::Event::WindowEvent { ref event, ..} => match event {
     
-        world.update();
+                    glutin::event::WindowEvent::CloseRequested => {
+                        *control_flow = glutin::event_loop::ControlFlow::Exit;
+                        return;
+                    },
 
-        return true;
+                    glutin::event::WindowEvent::Resized(size) => {
+                        self.size = (size.width, size.height);
+                        self.cell_size = (size.width as f32 / world.width() as f32, size.height as f32 / world.height() as f32);
+                    },
+    
+                    glutin::event::WindowEvent::CursorMoved {position, ..} => {
+                        self.mouse_pos = Some((position.x, position.y));
+                    },
+    
+                    glutin::event::WindowEvent::MouseInput {state, button, ..} => {
+                        if *button == glutin::event::MouseButton::Left {
+                            self.mouse_down = *state == glutin::event::ElementState::Pressed;
+                        }
+                    },
+    
+                    _ => ()
+                },
+    
+                glutin::event::Event::MainEventsCleared => {
+    
+                    if now - last_tick >= tick_time {
+                        count += 1;
+                        if now - last_time >= time::Duration::from_secs(1) {
+                            println!("{} fps", count);
+                            count = 0;
+                            last_time = time::Instant::now();
+                        }
+
+                        if self.mouse_down && self.mouse_in_window() {
+                            if let Some(pos) = self.mouse_pos {
+                                world.set_cell((pos.0 as f32 / self.cell_size.0) as usize, (pos.1 as f32 / self.cell_size.1)as usize, particles::Cell::new(particles::Material::Sand));
+                            }
+                        }
+        
+                        world.update();
+        
+                        self.draw(&mut world);
+
+                        last_tick = now.clone();
+                        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(now + tick_time);
+                    }
+                },
+    
+                _ => ()
+            }
+
+            
+        });
     }
 
     fn draw(&self, world: &mut particles::World) {
