@@ -1,13 +1,12 @@
 #[macro_use]
 extern crate glium;
-extern crate image;
 
 use particles;
 
 
 use std::time;
 
-use glium::{Display, Surface, glutin, uniforms::{MagnifySamplerFilter, MinifySamplerFilter}};
+use glium::{Display, Surface, buffer::{Buffer, BufferType}, glutin, texture::buffer_texture::{BufferTexture, BufferTextureType}, uniforms::{MagnifySamplerFilter, MinifySamplerFilter}};
 use glutin::dpi::{PhysicalSize, Size};
 
 
@@ -79,12 +78,22 @@ impl Window {
     pub fn run(mut self, mut world: particles::World) {
         let event_loop = self.event_loop.take().unwrap();
 
+        let filter_behavior = glium::uniforms::SamplerBehavior {
+            minify_filter: MinifySamplerFilter::Nearest,
+            magnify_filter: MagnifySamplerFilter::Nearest,
+            ..Default::default()
+        };
+
         let mut last_time = time::Instant::now();
         let mut count: u32 = 0;
 
         let tick_time = time::Duration::from_nanos(16_666_667);
         let mut last_tick = time::Instant::now();
+
+        let size = (world.width(), world.height());
         
+        let texture = BufferTexture::persistent(&self.display, world.cells().data(), BufferTextureType::Unsigned).unwrap();
+
         event_loop.run(move |event, _, control_flow| {
             let now = time::Instant::now();
             
@@ -116,7 +125,9 @@ impl Window {
     
                 glutin::event::Event::MainEventsCleared => {
     
-                    if now - last_tick >= tick_time {
+                    // if now - last_tick >= tick_time {
+                        last_tick = now.clone();
+
                         count += 1;
                         if now - last_time >= time::Duration::from_secs(1) {
                             println!("{} fps", count);
@@ -126,17 +137,20 @@ impl Window {
 
                         if self.mouse_down && self.mouse_in_window() {
                             if let Some(pos) = self.mouse_pos {
-                                world.set_cell((pos.0 as f32 / self.cell_size.0) as usize, (pos.1 as f32 / self.cell_size.1)as usize, particles::Cell::new(particles::Material::Sand));
+                               world.cells().set_cell((pos.0 as f32 / self.cell_size.0) as u32, (pos.1 as f32 / self.cell_size.1) as u32, particles::Cell::new(particles::Material::Sand));
+                            
+                            
+                        
                             }
                         }
         
                         world.update();
         
-                        self.draw(&mut world);
+                        self.draw(&mut world, &filter_behavior, &texture);
 
-                        last_tick = now.clone();
-                        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(now + tick_time);
-                    }
+                        // *control_flow = glutin::event_loop::ControlFlow::WaitUntil(now + tick_time);
+                        *control_flow = glutin::event_loop::ControlFlow::Poll;
+                    // }particles
                 },
     
                 _ => ()
@@ -146,20 +160,13 @@ impl Window {
         });
     }
 
-    fn draw(&self, world: &mut particles::World) {
-        let size = (world.width(), world.height());
-        let draw = world.draw();
-        let image = glium::texture::RawImage2d::from_raw_rgba_reversed(draw, size);
-        let texture = glium::texture::SrgbTexture2d::new(&self.display, image).unwrap();
+    fn draw(&self, world: &mut particles::World, behavior: &glium::uniforms::SamplerBehavior, texture: &BufferTexture<(u8, u8, u8, u8)>) {
         
-        let behavior = glium::uniforms::SamplerBehavior {
-            minify_filter: MinifySamplerFilter::Nearest,
-            magnify_filter: MagnifySamplerFilter::Nearest,
-            ..Default::default()
-        };
+        // let texture1 = BufferTexture::new(&self.display, world.cells().data(), BufferTextureType::Unsigned).unwrap();
+
 
         let mut target = self.display.draw();
-        let uniforms = uniform! { data: glium::uniforms::Sampler(&texture, behavior) };
+        let uniforms = uniform! { data: texture };
 
         target.draw(&self.quad_vertex_buffer, &self.quad_index_buffer, &self.shader, &uniforms, &Default::default()).unwrap();
         target.finish().unwrap();
