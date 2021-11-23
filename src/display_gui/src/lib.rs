@@ -2,13 +2,9 @@
 extern crate glium;
 
 use particles;
-
-
 use std::time;
-
-use glium::{Display, Surface, buffer::{Buffer, BufferType}, glutin, texture::buffer_texture::{BufferTexture, BufferTextureType}, uniforms::{MagnifySamplerFilter, MinifySamplerFilter}};
+use glium::{Display, Surface, glutin, texture::buffer_texture::{BufferTexture, BufferTextureType}};
 use glutin::dpi::{PhysicalSize, Size};
-
 
 
 pub struct Window {
@@ -20,13 +16,15 @@ pub struct Window {
     mouse_pos: Option<(f64, f64)>,
     size: (u32, u32),
     cell_size: (f32, f32),
-    mouse_down: bool
+    mouse_down: bool,
+    selected_material: particles::Material
 }
 
 impl Window {
     pub fn new(title: &str, world: &particles::World, cell_size: (f32, f32)) -> Self {
         implement_vertex!(Vertex, position, tex_coords);
     
+        let world_size = (world.width() as f32, world.height() as f32);
         let size = PhysicalSize::new((world.width() as f32 * cell_size.0).floor() as u32, (world.height() as f32 * cell_size.1).floor() as u32);
 
         let event_loop = glutin::event_loop::EventLoop::new();
@@ -36,10 +34,10 @@ impl Window {
         let display = Display::new(window_builder, context_builder, &event_loop).unwrap();
 
         let shape = vec![
-            Vertex{ position: [-1.0, -1.0 ], tex_coords: [0.0, 0.0]},
-            Vertex{ position: [-1.0, 1.0 ], tex_coords: [0.0, 1.0]},
-            Vertex{ position: [1.0, 1.0 ], tex_coords: [1.0, 1.0]},
-            Vertex{ position: [1.0, -1.0 ], tex_coords: [1.0, 0.0]}
+            Vertex{ position: [-1.0, -1.0 ], tex_coords: [0.0, world_size.1]},
+            Vertex{ position: [-1.0, 1.0 ], tex_coords: [0.0, 0.0]},
+            Vertex{ position: [1.0, 1.0 ], tex_coords: [world_size.0, 0.0]},
+            Vertex{ position: [1.0, -1.0 ], tex_coords: [world_size.0, world_size.1]}
         ];
 
         let indices: [u32; 6] = [0, 1, 2, 3, 2, 0];
@@ -62,7 +60,8 @@ impl Window {
             mouse_pos: None, 
             mouse_down: false,
             size:(size.width, size.height),
-            cell_size
+            cell_size,
+            selected_material: particles::Material::Sand
         }
     }
 
@@ -75,24 +74,20 @@ impl Window {
         }
     }
 
+    pub fn select_material(&mut self, material: particles::Material) {
+        self.selected_material = material;
+        println!("Selected {:?}", material);
+    }
+
     pub fn run(mut self, mut world: particles::World) {
         let event_loop = self.event_loop.take().unwrap();
-
-        let filter_behavior = glium::uniforms::SamplerBehavior {
-            minify_filter: MinifySamplerFilter::Nearest,
-            magnify_filter: MagnifySamplerFilter::Nearest,
-            ..Default::default()
-        };
-
-        let mut last_time = time::Instant::now();
-        let mut count: u32 = 0;
-
         let tick_time = time::Duration::from_nanos(16_666_667);
         let mut last_tick = time::Instant::now();
 
-        let size = (world.width(), world.height());
-        
-        let texture = BufferTexture::persistent(&self.display, world.cells().data(), BufferTextureType::Unsigned).unwrap();
+        // let mut last_time = time::Instant::now();
+        // let mut count: u32 = 0;
+
+        let texture = BufferTexture::persistent(&self.display, &world.cells().data(), BufferTextureType::Unsigned).unwrap();
 
         event_loop.run(move |event, _, control_flow| {
             let now = time::Instant::now();
@@ -119,38 +114,44 @@ impl Window {
                             self.mouse_down = *state == glutin::event::ElementState::Pressed;
                         }
                     },
+
+                    glutin::event::WindowEvent::KeyboardInput {input, ..} => {
+                        if input.state == glutin::event::ElementState::Pressed {
+                            match input.virtual_keycode.unwrap() {
+                                glutin::event::VirtualKeyCode::Key1 => self.select_material(particles::Material::Sand),
+                                glutin::event::VirtualKeyCode::Key2 => self.select_material(particles::Material::Water),
+                                _ => ()
+                            }
+                        }
+                    },
     
                     _ => ()
                 },
     
                 glutin::event::Event::MainEventsCleared => {
     
-                    // if now - last_tick >= tick_time {
+                    if now - last_tick >= tick_time {
                         last_tick = now.clone();
+                        
+                        // count += 1;
+                        // if now - last_time >= time::Duration::from_secs(1) {
+                        //     println!("{} fps", count);
+                        //     count = 0;
+                        //     last_time = time::Instant::now();
+                        // }
 
-                        count += 1;
-                        if now - last_time >= time::Duration::from_secs(1) {
-                            println!("{} fps", count);
-                            count = 0;
-                            last_time = time::Instant::now();
-                        }
-
+                        world.update();
+                        
                         if self.mouse_down && self.mouse_in_window() {
                             if let Some(pos) = self.mouse_pos {
-                               world.cells().set_cell((pos.0 as f32 / self.cell_size.0) as u32, (pos.1 as f32 / self.cell_size.1) as u32, particles::Cell::new(particles::Material::Sand));
-                            
-                            
-                        
+                               world.set_cell((pos.0 as f32 / self.cell_size.0) as u32, (pos.1 as f32 / self.cell_size.1) as u32, self.selected_material);
                             }
                         }
         
-                        world.update();
-        
-                        self.draw(&mut world, &filter_behavior, &texture);
+                        self.draw(&mut world, &texture);
 
-                        // *control_flow = glutin::event_loop::ControlFlow::WaitUntil(now + tick_time);
-                        *control_flow = glutin::event_loop::ControlFlow::Poll;
-                    // }particles
+                        *control_flow = glutin::event_loop::ControlFlow::WaitUntil(now + tick_time);
+                    }
                 },
     
                 _ => ()
@@ -160,13 +161,12 @@ impl Window {
         });
     }
 
-    fn draw(&self, world: &mut particles::World, behavior: &glium::uniforms::SamplerBehavior, texture: &BufferTexture<(u8, u8, u8, u8)>) {
-        
-        // let texture1 = BufferTexture::new(&self.display, world.cells().data(), BufferTextureType::Unsigned).unwrap();
+    fn draw(&self, world: &mut particles::World, texture: &BufferTexture<(u8, u8, u8, u8)>) {
+        texture.write(world.draw());
 
+        let uniforms = uniform! { data: texture, world_size: [world.width(), world.height()] };
 
         let mut target = self.display.draw();
-        let uniforms = uniform! { data: texture };
 
         target.draw(&self.quad_vertex_buffer, &self.quad_index_buffer, &self.shader, &uniforms, &Default::default()).unwrap();
         target.finish().unwrap();

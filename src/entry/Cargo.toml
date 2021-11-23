@@ -8,3 +8,4 @@ edition = "2018"
 [dependencies]
 particles = { path = "../particles" }
 display_gui = { path = "../display_gui" }
+display_mat = { path = "../display_mat" }

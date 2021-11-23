@@ -1,9 +1,17 @@
 use particles;
 use display_gui;
+use display_mat;
 
 fn main() {
-    let world = particles::World::new(640, 320);
+    let args: Vec<_> = std::env::args().collect();
 
-   let window = display_gui::Window::new("Sand Test", &world, (1.50, 1.50));
-   window.run(world);
+    if args.len() <= 1 {
+        let world = particles::World::new(64, 32);
+
+        let window = display_gui::Window::new("Sand Test", &world, (15.0, 15.0));
+        window.run(world);
+    } else {
+        display_mat::draw();
+    }
+
 }
