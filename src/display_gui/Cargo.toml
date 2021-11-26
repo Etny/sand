@@ -8,4 +8,4 @@ edition = "2018"
 [dependencies]
 glium = "*"
 particles = { path = "../particles" }
-# image = "*"
+render_opengl = { path = "../render_opengl" }
