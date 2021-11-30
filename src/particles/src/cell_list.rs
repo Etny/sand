@@ -27,6 +27,8 @@ impl CellList {
         }
     }
 
+
+
     pub fn width(&self) -> u32 { self.width }
     pub fn height(&self) -> u32 { self.height }
 
@@ -38,6 +40,10 @@ impl CellList {
 
     pub fn is_empty(&self, x: u32, y: u32) -> bool {
         self.data[self.to_index(x, y)].0 == 0
+    }
+
+    pub fn get_material(&self, x: u32, y: u32) -> Material {
+        num::FromPrimitive::from_u8(self.data[self.to_index(x, y)].0).unwrap()
     }
 
     pub fn get_clock(&self, x: u32, y: u32) -> u8 {

@@ -51,7 +51,7 @@ impl World {
                 let mut cell = self.cells.take_cell(x, y);
                 cell.clock = self.clock;
 
-                cell.update(CellContext::new(&mut self.cells, x, y));
+                cell.update(CellContext::new(&mut self.cells, cell, x, y));
             }
         }
     }

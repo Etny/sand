@@ -120,6 +120,9 @@ impl Window {
                             match input.virtual_keycode.unwrap() {
                                 glutin::event::VirtualKeyCode::Key1 => self.select_material(particles::Material::Sand),
                                 glutin::event::VirtualKeyCode::Key2 => self.select_material(particles::Material::Water),
+                                glutin::event::VirtualKeyCode::Key3 => self.select_material(particles::Material::Wood),
+                                glutin::event::VirtualKeyCode::Key4 => self.select_material(particles::Material::Fire),
+                                glutin::event::VirtualKeyCode::Key5 => self.select_material(particles::Material::Flames),
                                 _ => ()
                             }
                         }
