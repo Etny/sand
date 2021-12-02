@@ -1,6 +1,6 @@
-use particles;
 use display_gui;
 use display_mat;
+use particles;
 
 fn main() {
     let args: Vec<_> = std::env::args().collect();
@@ -13,5 +13,4 @@ fn main() {
     } else {
         display_mat::draw();
     }
-
 }

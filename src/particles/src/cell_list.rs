@@ -3,15 +3,15 @@ use super::*;
 pub struct CellList {
     data: Vec<(u8, u8, u8, u8)>,
     width: u32,
-    height: u32
+    height: u32,
 }
 
 impl CellList {
-    pub fn new(width: u32, height: u32) -> Self{
-        CellList{
+    pub fn new(width: u32, height: u32) -> Self {
+        CellList {
             data: vec![(0, 0, 0, 0); (width * height * 4) as usize],
             width,
-            height
+            height,
         }
     }
 
@@ -23,14 +23,16 @@ impl CellList {
             material: mat,
             seed,
             data,
-            clock
+            clock,
         }
     }
 
-
-
-    pub fn width(&self) -> u32 { self.width }
-    pub fn height(&self) -> u32 { self.height }
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    pub fn height(&self) -> u32 {
+        self.height
+    }
 
     pub fn take_cell(&mut self, x: u32, y: u32) -> Cell {
         let cell = self.get_cell(x, y);
